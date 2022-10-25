@@ -111,7 +111,7 @@ void check_neighbors_alive() {
       unsigned int timeDiff = time_elapse(globalLastHeartbeat[i], currTime);
       if (timeDiff > timeout) {
         //TODO: handle lost connection case
-        set_cost(globalMyID, i, 0)
+        set_cost(globalMyID, i, 0);
       }
     }
 		nanosleep(&sleepFor, 0);
