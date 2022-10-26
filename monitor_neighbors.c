@@ -301,15 +301,19 @@ void decode_structure(unsigned char *msg, int *update) {
     memcpy(&entry, tmp, 2 + sizeof(struct tableItem));
     tmp += 2 + sizeof(struct tableItem);
     unsigned int oldCost = get_cost(sourceID, entryIdx);
-    if (oldCost != entry.cost || (oldCost == 0 && entry.isNeighbor)) {
+    if (oldCost != entry.cost) {
       changed += 1;
       set_cost(sourceID, entryIdx, entry.cost);
     }
-    else if (oldCost && (entry.isNeighbor == 0)) {
-      //find the source is disconnected to the modified entry
-      changed += 1;
-      set_cost(sourceID, entryIdx, 0);
-    }
+    // if (oldCost != entry.cost || (oldCost == 0 && entry.isNeighbor)) {
+    //   changed += 1;
+    //   set_cost(sourceID, entryIdx, entry.cost);
+    // }
+    // else if (oldCost && (entry.isNeighbor == 0)) {
+    //   //find the source is disconnected to the modified entry
+    //   changed += 1;
+    //   set_cost(sourceID, entryIdx, 0);
+    // }
   }
   memcpy(update, &changed, 4);
 }

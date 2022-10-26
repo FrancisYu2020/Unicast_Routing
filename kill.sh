@@ -1,0 +1,1 @@
+pkill ls_router

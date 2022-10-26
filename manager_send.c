@@ -56,9 +56,9 @@ int main(int argc, char** argv)
 		// int no_newCost = htonl(atoi(argv[4]));
 
 		char sendBuf[5];
-		printf("debug1\n");
+		// printf("debug1\n");
 		strcpy(sendBuf, "print");
-		printf("debug2\n");
+		// printf("debug2\n");
 		// memcpy(sendBuf+4, &no_destID, sizeof(short int));
 		// memcpy(sendBuf+4+sizeof(short int), &no_newCost, sizeof(int));
 
