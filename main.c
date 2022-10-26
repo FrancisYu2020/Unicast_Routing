@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <ctype.h>
+#include <sys/time.h>
 
 #include "monitor_neighbors.h"
 
@@ -62,7 +63,7 @@ int main(int argc, char** argv)
   // printf("%s\n", "debug");
   //TODO: init the cost matrix
   init_cost();
-  print_costMatrix();
+  // print_costMatrix();
 
 	//TODO: read and parse initial costs file. default to cost 1 if no entry for a node. file may be empty.
   // printf("%s\n", "debug!!!");
@@ -70,6 +71,8 @@ int main(int argc, char** argv)
     forwardingTable[i].seqNum = 0;
     forwardingTable[i].cost = 1;
     forwardingTable[i].nexthop = -1;
+    forwardingTable[i].dist = -1;
+    forwardingTable[i].isNeighbor = 0;
   }
 
   FILE* initialCostsFile = fopen(argv[2], "r");
@@ -90,7 +93,6 @@ int main(int argc, char** argv)
     int nodeID = atoi(line);
     int cost = atoi(cost_chr);
     forwardingTable[nodeID].cost = cost;
-    // printf("%s %s\n", line, strchr(line, ' ') + 1);
   }
   fclose(initialCostsFile);
 
