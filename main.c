@@ -23,6 +23,7 @@ struct sockaddr_in globalNodeAddrs[256];
 
 char *filename;
 struct tableItem forwardingTable[256];
+int oldSeq[256];
 
 
 int main(int argc, char** argv)
@@ -93,6 +94,8 @@ int main(int argc, char** argv)
     int nodeID = atoi(line);
     int cost = atoi(cost_chr);
     forwardingTable[nodeID].cost = cost;
+    forwardingTable[nodeID].seqNum += 1;
+    set_cost(globalMyID, nodeID, cost);
   }
   fclose(initialCostsFile);
 

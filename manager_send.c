@@ -11,7 +11,8 @@
 
 int main(int argc, char** argv)
 {
-	if(argc != 5 || (strcmp(argv[2], "cost") && strcmp(argv[2], "send")))
+	// printf("%d %s\n", argc, argv[2]);
+	if((argc != 4 && (argc != 5)) || (strcmp(argv[2], "cost") && strcmp(argv[2], "send") && strcmp(argv[2], "print")))
 	{
 		fprintf(stderr, "Usage: %s destnode command [args]\n'command' must be 'send' or 'cost'.\n\n", argv[0]);
 		if(argc>2 && !strcmp(argv[2], "cost") && argc != 5)
@@ -30,7 +31,7 @@ int main(int argc, char** argv)
 
 	//NOTE: it is normally not necessary to bind() a socket you only plan to sendto() from,
 	//      but the virtual network interfaces we're using make things a little weird.
-	//      (specifically, there is a specific IP address that we want our packets to use 
+	//      (specifically, there is a specific IP address that we want our packets to use
 	//      as the source, and you have to bind() if you want to control that.
 	//      (We're also explicitly choosing source port 8999, but that's not actually important here.)
 	struct sockaddr_in srcAddr;
@@ -40,7 +41,7 @@ int main(int argc, char** argv)
 	inet_pton(AF_INET, "10.0.0.10", &srcAddr.sin_addr);
 	if(bind(senderSocket, (struct sockaddr*)&srcAddr, sizeof(srcAddr)) < 0)
 		perror("bind()");
-	
+
 	struct sockaddr_in destAddr;
 	char tempaddr[100];
 	sprintf(tempaddr, "10.1.1.%s", argv[1]);
@@ -49,7 +50,23 @@ int main(int argc, char** argv)
 	destAddr.sin_port = htons(7777);
 	inet_pton(AF_INET, tempaddr, &destAddr.sin_addr);
 
-	if(!strcmp(argv[2], "cost"))
+	if(!strcmp(argv[2], "print"))
+	{
+
+		// int no_newCost = htonl(atoi(argv[4]));
+
+		char sendBuf[5];
+		printf("debug1\n");
+		strcpy(sendBuf, "print");
+		printf("debug2\n");
+		// memcpy(sendBuf+4, &no_destID, sizeof(short int));
+		// memcpy(sendBuf+4+sizeof(short int), &no_newCost, sizeof(int));
+
+		if(sendto(senderSocket, sendBuf, 5, 0,
+		          (struct sockaddr*)&destAddr, sizeof(destAddr)) < 0)
+			perror("sendto()");
+	}
+	else if(!strcmp(argv[2], "cost"))
 	{
 
 		int no_newCost = htonl(atoi(argv[4]));

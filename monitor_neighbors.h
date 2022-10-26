@@ -22,6 +22,7 @@ extern struct sockaddr_in globalNodeAddrs[256];
 
 extern char *filename;
 extern struct tableItem forwardingTable[256];
+extern int oldSeq[256];
 
 struct tableItem {
 	unsigned int cost;
@@ -31,11 +32,8 @@ struct tableItem {
 	int isNeighbor;
 };
 
-struct LSA {
-	//
-};
-
 void hackyBroadcast(const char* buf, int length);
+void hackyBroadcast1(const unsigned char* buf, int length);
 
 void* announceToNeighbors(void* unusedParam);
 
@@ -53,8 +51,10 @@ void *check_neighbors_alive(void* arg);
 unsigned int get_cost(int source, int target);
 void set_cost(int source, int target, unsigned int newCost);
 
-unsigned char *encode_structure();
+unsigned char *encode_structure(short int *sendIdx, short int counter);
 
-struct tableItem *decode_structure();
+void decode_structure(unsigned char *msg, int *update);
 
 void dijkstra(int root);
+
+void *send_LSA(void *unusedParam);
