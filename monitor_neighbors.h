@@ -21,10 +21,10 @@ extern int globalSocketUDP;
 extern struct sockaddr_in globalNodeAddrs[256];
 
 extern char *filename;
-extern struct tableItem forwardingTable[256];
+extern struct tableEntry forwardingTable[256];
 extern int oldSeq[256];
 
-struct tableItem {
+struct tableEntry {
 	unsigned int cost;
 	int seqNum;
 	short int nexthop;

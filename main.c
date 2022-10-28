@@ -22,7 +22,7 @@ int globalSocketUDP;
 struct sockaddr_in globalNodeAddrs[256];
 
 char *filename;
-struct tableItem forwardingTable[256];
+struct tableEntry forwardingTable[256];
 int oldSeq[256];
 
 

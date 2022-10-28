@@ -218,7 +218,7 @@ void *listenForNeighbors(void* arg)
     }
     else if (!strncmp((const char *)recvBuf, "LSA", 3)) {
       int neighborID;
-      // struct tableItem *neighborFT = decode_structure(recvBuf, &neighborID);
+      // struct tableEntry *neighborFT = decode_structure(recvBuf, &neighborID);
       int update;
       decode_structure(recvBuf, &update);
       if (update) {
@@ -265,16 +265,16 @@ void dijkstra(int root) {
 
 unsigned char *encode_structure(short int *sendIdx, short int counter) {
   // send message: LSA<3 bytes> + sourceID<4 bytes> + counter<4 bytes> + counter * (id + blocks)
-  unsigned char *msg = (unsigned char*)malloc(3 + 4 + 2 + counter * (2 + sizeof(struct tableItem)));
+  unsigned char *msg = (unsigned char*)malloc(3 + 4 + 2 + counter * (2 + sizeof(struct tableEntry)));
   memcpy(msg, "LSA", 3);
   memcpy(msg + 3, &globalMyID, 4);
   memcpy(msg + 7, &counter, 2);
   unsigned char *tmp = msg + 9;
   for (int i = 0;i < counter; i ++) {
-    unsigned char block[2 + sizeof(struct tableItem)];
+    unsigned char block[2 + sizeof(struct tableEntry)];
     memcpy(block, &sendIdx[i], 2);
-    memcpy(block + 2, &forwardingTable[sendIdx[i]], sizeof(struct tableItem));
-    memcpy(tmp + i * (2 + sizeof(struct tableItem)), block, 2 + sizeof(struct tableItem));
+    memcpy(block + 2, &forwardingTable[sendIdx[i]], sizeof(struct tableEntry));
+    memcpy(tmp + i * (2 + sizeof(struct tableEntry)), block, 2 + sizeof(struct tableEntry));
   }
   return msg;
 }
@@ -295,11 +295,11 @@ void decode_structure(unsigned char *msg, int *update) {
 
   for (int i = 0; i < counter; i ++) {
     short int entryIdx;
-    struct tableItem entry;
+    struct tableEntry entry;
     memcpy(&entryIdx, tmp, 2);
     tmp += 2;
-    memcpy(&entry, tmp, 2 + sizeof(struct tableItem));
-    tmp += 2 + sizeof(struct tableItem);
+    memcpy(&entry, tmp, 2 + sizeof(struct tableEntry));
+    tmp += 2 + sizeof(struct tableEntry);
     unsigned int oldCost = get_cost(sourceID, entryIdx);
     if (oldCost != entry.cost) {
       changed += 1;
@@ -363,7 +363,7 @@ void* announceToNeighbors(void* unusedParam)
     if (counter) {
       unsigned char *msg = encode_structure(sendIdx, counter);
       //TODO: send the LSA to other nodes
-      hackyBroadcast1((const unsigned char *)msg, 11 + sizeof(struct tableItem) * counter);
+      hackyBroadcast1((const unsigned char *)msg, 11 + sizeof(struct tableEntry) * counter);
       //TODO: find out if we need to free the message
       free(msg);
     }
