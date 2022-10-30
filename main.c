@@ -11,7 +11,7 @@
 // void* announceToNeighbors(void* unusedParam);
 // struct ForwardingTable
 
-int globalMyID = 0;
+short globalMyID = 0;
 //last time you heard from each node. TODO: you will want to monitor this
 //in order to realize when a neighbor has gotten cut off from you.
 struct timeval globalLastHeartbeat[256];
@@ -23,7 +23,6 @@ struct sockaddr_in globalNodeAddrs[256];
 
 char *filename;
 struct tableEntry forwardingTable[256];
-int oldSeq[256];
 
 
 int main(int argc, char** argv)
@@ -71,9 +70,8 @@ int main(int argc, char** argv)
   for (int i = 0; i < 256; i ++) {
     forwardingTable[i].seqNum = 0;
     forwardingTable[i].cost = 1;
-    forwardingTable[i].nexthop = -1;
+    forwardingTable[i].nextHop = -1;
     forwardingTable[i].dist = -1;
-    forwardingTable[i].isNeighbor = 0;
   }
 
   FILE* initialCostsFile = fopen(argv[2], "r");
@@ -91,11 +89,10 @@ int main(int argc, char** argv)
     char *cost_chr = strchr(line, ' ');
     *cost_chr = '\0';
     cost_chr++;
-    int nodeID = atoi(line);
-    int cost = atoi(cost_chr);
-    forwardingTable[nodeID].cost = cost;
-    forwardingTable[nodeID].seqNum += 1;
-    set_cost(globalMyID, nodeID, cost);
+    short nodeID = (short)atoi(line);
+    short cost = (short)atoi(cost_chr);
+    // set_cost(globalMyID, nodeID, cost);
+		forwardingTable[nodeID].cost = cost;
   }
   fclose(initialCostsFile);
 
@@ -124,8 +121,9 @@ int main(int argc, char** argv)
 
 
 	//start threads... feel free to add your own, and to remove the provided ones.
-	pthread_t announcerThread, messageReceiverThread, monitorThread;
+	pthread_t announcerThread, messageReceiverThread, monitorThread, LSAThread;
   pthread_create(&announcerThread, 0, announceToNeighbors, (void*)0);
+	pthread_create(&LSAThread, 0, send_neighbor_costs, (void*)0);
   pthread_create(&messageReceiverThread, 0, listenForNeighbors, (void*)0);
 	pthread_create(&monitorThread, 0, check_neighbors_alive, (void*)0);
 
@@ -134,6 +132,7 @@ int main(int argc, char** argv)
 
 	//good luck, have fun!
 	// listenForNeighbors();
+	pthread_join(LSAThread, NULL);
   pthread_join(announcerThread, NULL);
   pthread_join(messageReceiverThread, NULL);
   pthread_join(monitorThread, NULL);

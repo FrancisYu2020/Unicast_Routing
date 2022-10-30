@@ -10,7 +10,7 @@
 #include <netdb.h>
 #include <pthread.h>
 
-extern int globalMyID;
+extern short globalMyID;
 //last time you heard from each node. TODO: you will want to monitor this
 //in order to realize when a neighbor has gotten cut off from you.
 extern struct timeval globalLastHeartbeat[256];
@@ -22,39 +22,47 @@ extern struct sockaddr_in globalNodeAddrs[256];
 
 extern char *filename;
 extern struct tableEntry forwardingTable[256];
-extern int oldSeq[256];
 
 struct tableEntry {
 	unsigned int cost;
 	int seqNum;
-	short int nexthop;
+	short nextHop;
 	unsigned int dist;
-	int isNeighbor;
+};
+
+struct treeNode {
+	short destID;
+	unsigned int dist;
+	short parent;
+	short nextHop;
 };
 
 void hackyBroadcast(const char* buf, int length);
 void hackyBroadcast1(const unsigned char* buf, int length);
+void broadcast_topology(const unsigned char* neighborInfo, short origin);
 
 void* announceToNeighbors(void* unusedParam);
 
 void *listenForNeighbors(void* arg);
 
 void print_costMatrix();
-
 void init_cost();
+unsigned int get_cost(short source, short target);
+void set_cost(short source, short target, unsigned int newCost);
+int isAdjacent(short src, short dest);
 
 void write_log(char* log_msg);
+
 
 unsigned int time_elapse(struct timeval start, struct timeval end);
 void *check_neighbors_alive(void* arg);
 
-unsigned int get_cost(int source, int target);
-void set_cost(int source, int target, unsigned int newCost);
 
-unsigned char *encode_structure(short int *sendIdx, short int counter);
+unsigned char *encode_structure(short *sendIdx, short counter);
 
-void decode_structure(unsigned char *msg, int *update);
+void decode_topology(unsigned char *msg, int *seqNum, short *sourceID);
 
-void dijkstra(int root);
+void dijkstra();
 
-void *send_LSA(void *unusedParam);
+// void *send_LSA(void *unusedParam);
+void *send_neighbor_costs(void *unusedParam);
