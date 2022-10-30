@@ -70,8 +70,6 @@ int main(int argc, char** argv)
   for (int i = 0; i < 256; i ++) {
     forwardingTable[i].seqNum = 0;
     forwardingTable[i].cost = 1;
-    forwardingTable[i].nextHop = -1;
-    forwardingTable[i].dist = -1;
   }
 
   FILE* initialCostsFile = fopen(argv[2], "r");

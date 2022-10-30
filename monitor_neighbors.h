@@ -26,8 +26,6 @@ extern struct tableEntry forwardingTable[256];
 struct tableEntry {
 	unsigned int cost;
 	int seqNum;
-	short nextHop;
-	unsigned int dist;
 };
 
 struct treeNode {
@@ -38,7 +36,6 @@ struct treeNode {
 };
 
 void hackyBroadcast(const char* buf, int length);
-// void hackyBroadcast1(const unsigned char* buf, int length);
 void broadcast_topology(const char* neighborInfo, short origin);
 
 void* announceToNeighbors(void* unusedParam);

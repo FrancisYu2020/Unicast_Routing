@@ -163,13 +163,13 @@ void *listenForNeighbors(void* arg)
           sprintf(log_msg, "sending packet dest %hd nexthop %hd message %s\n", destID, spanTree[destID].nextHop, message);
           memcpy(recvBuf + 6, &messageLen, sizeof(size_t));
           memcpy(recvBuf + 6 + sizeof(size_t), message, messageLen);
-          // char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
+          char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
           // cout << "ground truth: ";
-          // for (short i = 0; i < neighborLen; i ++) {
-          //   memcpy(tmp, &spanTree[i].parent, 2);
-          //   tmp += 2;
-          //   cout << spanTree[i].parent << " ";
-          // }
+          for (short i = 0; i < neighborLen; i ++) {
+            memcpy(tmp, &spanTree[i].parent, 2);
+            tmp += 2;
+            // cout << spanTree[i].parent << " ";
+          }
           // cout << endl;
           // tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
           // cout << "internally decoded: ";
@@ -184,6 +184,7 @@ void *listenForNeighbors(void* arg)
         // cout << "forward to nextHop: "<<nextHopID << endl;
       }
       else if (destID == globalMyID) {
+        // cout << "receive in " << globalMyID << endl;
         size_t messageLen;
         memcpy(&messageLen, recvBuf + 6, sizeof(size_t));
         memcpy(message, recvBuf + 6 + sizeof(size_t), messageLen);
@@ -194,6 +195,7 @@ void *listenForNeighbors(void* arg)
       }
       else {
         //TODO: forward the message
+        // cout << "forward in " << globalMyID << endl;
         size_t messageLen;
         memcpy(&messageLen, recvBuf + 6, sizeof(size_t));
         memcpy(message, recvBuf + 6 + sizeof(size_t), messageLen);
@@ -201,14 +203,14 @@ void *listenForNeighbors(void* arg)
         char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
         short dests[neighborLen], parents[neighborLen];
         // cout << "externally decoded: ";
-        // for (short i = 0; i < neighborLen; i ++) {
-        //   // short node;
-        //   memcpy(&parents[i], tmp, 2);
-        //   tmp += 2;
-        //   // parents[i] = ntohs(node);
-        //   cout << parents[i] << " ";
-        // }
-        // cout << endl;
+        for (short i = 0; i < neighborLen; i ++) {
+          // short node;
+          memcpy(&parents[i], tmp, 2);
+          tmp += 2;
+          // parents[i] = ntohs(node);
+          // cout << parents[i] << " ";
+        }
+        cout << endl;
         short curr = destID;
         short parent = parents[curr];
         while (parent != globalMyID) {
@@ -241,7 +243,7 @@ void *listenForNeighbors(void* arg)
       int newCost = ntohl(no_newCost);
       set_cost(globalMyID, destID, newCost);
       forwardingTable[destID].cost = newCost;
-      forwardingTable[destID].seqNum += 1;
+      // forwardingTable[destID].seqNum += 1;
       // dijkstra(globalMyID);
 
       // // TODO: log this event
@@ -260,7 +262,6 @@ void *listenForNeighbors(void* arg)
       }
     }
     else if (!strncmp((const char *)recvBuf, "print", 5)) {
-      cout << "ffff" << endl;
       print_costMatrix();
     }
 	}
@@ -364,13 +365,13 @@ void* announceToNeighbors(void* unusedParam)
 }
 
 void *send_neighbor_costs(void *unusedParam) {
-  struct timeval t;
-  gettimeofday(&t, NULL);
-  srand((unsigned int)(t.tv_sec * 1000000 + t.tv_usec));
-  struct timespec sSleep;
-  sSleep.tv_sec = 0;
-  sSleep.tv_nsec = (rand() % 1000) * 1000 * 1000;
-  nanosleep(&sSleep, 0);
+  struct timeval currTime;
+  gettimeofday(&currTime, NULL);
+  srand((unsigned int)(currTime.tv_sec * 1000000 + currTime.tv_usec));
+  struct timespec randomSleep;
+  randomSleep.tv_sec = 0;
+  randomSleep.tv_nsec = (rand() % 1000) * 1000 * 1000;
+  nanosleep(&randomSleep, 0);
 
   struct timespec sleepFor;
   sleepFor.tv_sec = 1;
