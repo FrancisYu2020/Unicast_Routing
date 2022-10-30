@@ -1,3 +1,0 @@
-forward packet dest 3 nexthop 3 message this is just the example topo... not partioned yet
-forward packet dest 7 nexthop 7 message heal07
-receive packet message heal2554

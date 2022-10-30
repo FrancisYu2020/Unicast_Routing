@@ -1,1 +1,0 @@
-forward packet dest 0 nexthop 12 message more gridness

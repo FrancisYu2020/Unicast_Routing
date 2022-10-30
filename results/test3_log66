@@ -1,2 +1,0 @@
-forward packet dest 77 nexthop 76 message woooo big ole grid
-forward packet dest 0 nexthop 56 message more gridness
