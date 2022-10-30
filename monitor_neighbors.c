@@ -98,19 +98,19 @@ void *check_neighbors_alive(void* arg) {
 
 void *listenForNeighbors(void* arg)
 {
-  printf("In monitor_neighbors.h int globalMyID = %d\n", globalMyID);
+  // printf("In monitor_neighbors.h int globalMyID = %d\n", globalMyID);
 
 	char fromAddr[100];
 	struct sockaddr_in theirAddr;
 	socklen_t theirAddrLen;
-	unsigned char recvBuf[neighborInfoSize];
+	char recvBuf[1000];
 
 	int bytesRecvd;
 	while(1)
 	{
 		theirAddrLen = sizeof(theirAddr);
     // printf("In while\n" );
-		if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 8192 , 0,
+		if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000 , 0,
 					(struct sockaddr*)&theirAddr, &theirAddrLen)) == -1)
 		{
 			perror("connectivity listener: recvfrom failed");
@@ -139,29 +139,90 @@ void *listenForNeighbors(void* arg)
 		if(!strncmp((const char *)recvBuf, "send", 4))
 		{
 			//TODO send the requested message to the requested destination node
+      // cout << "bytes received = " << bytesRecvd << endl;
+      // cout << "size_t size = " << sizeof(size_t) << endl;
       dijkstra();
       uint16_t no_destID;
-      char msg[neighborInfoSize];
-      unsigned char forwardBuf[neighborInfoSize];
       memcpy(&no_destID, recvBuf + 4, sizeof(short));
-      memcpy(msg, recvBuf + 4 + sizeof(short), neighborInfoSize - 6);
-      memcpy(forwardBuf, "forward", 7);
-      memcpy(forwardBuf + 7, recvBuf + 4, 8192);
       short destID = ntohs(no_destID);
-      short nexthopID = forwardingTable[destID].nextHop;
-      char log_msg[8192];
-      if (nexthopID == -1) {
+      char log_msg[256];
+      short fromPort = ntohs(theirAddr.sin_port);
+      short nextHopID;
+      char message[100];
+      if (fromPort == 8999) {
+        memcpy(message, recvBuf + 6, 100);
+        size_t messageLen = strlen(message);
         //TODO: log unreachable destination and drop the message
-        sprintf(log_msg, "unreachable dest %hd\n", destID);
+        if (spanTree[destID].nextHop == -1) {
+          sprintf(log_msg, "unreachable dest %hd\n", destID);
+          write_log(log_msg);
+          continue;
+        }
+        else {
+          nextHopID = spanTree[destID].nextHop;
+          sprintf(log_msg, "sending packet dest %hd nexthop %hd message %s\n", destID, spanTree[destID].nextHop, message);
+          memcpy(recvBuf + 6, &messageLen, sizeof(size_t));
+          memcpy(recvBuf + 6 + sizeof(size_t), message, messageLen);
+          // char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
+          // cout << "ground truth: ";
+          // for (short i = 0; i < neighborLen; i ++) {
+          //   memcpy(tmp, &spanTree[i].parent, 2);
+          //   tmp += 2;
+          //   cout << spanTree[i].parent << " ";
+          // }
+          // cout << endl;
+          // tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
+          // cout << "internally decoded: ";
+          // for (short i = 0; i < neighborLen; i ++) {
+          //   short x;
+          //   memcpy(&x, tmp, 2);
+          //   tmp += 2;
+          //   cout << (x) << " ";
+          // }
+          // cout << endl;
+        }
+        // cout << "forward to nextHop: "<<nextHopID << endl;
+      }
+      else if (destID == globalMyID) {
+        size_t messageLen;
+        memcpy(&messageLen, recvBuf + 6, sizeof(size_t));
+        memcpy(message, recvBuf + 6 + sizeof(size_t), messageLen);
+        message[messageLen] = '\0';
+        sprintf(log_msg, "receive packet message %s\n", message);
+        write_log(log_msg);
+        continue;
       }
       else {
-
-        sprintf(log_msg, "sending packet dest %hd nexthop %hd message %s\n", destID, nexthopID, msg);
-
-        //TODO: send out the message
-        // sendto(globalSocketUDP, forwardBuf, 8192, 0, \
-          (struct sockaddr*)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
+        //TODO: forward the message
+        size_t messageLen;
+        memcpy(&messageLen, recvBuf + 6, sizeof(size_t));
+        memcpy(message, recvBuf + 6 + sizeof(size_t), messageLen);
+        message[messageLen] = '\0';
+        char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
+        short dests[neighborLen], parents[neighborLen];
+        // cout << "externally decoded: ";
+        // for (short i = 0; i < neighborLen; i ++) {
+        //   // short node;
+        //   memcpy(&parents[i], tmp, 2);
+        //   tmp += 2;
+        //   // parents[i] = ntohs(node);
+        //   cout << parents[i] << " ";
+        // }
+        // cout << endl;
+        short curr = destID;
+        short parent = parents[curr];
+        while (parent != globalMyID) {
+          curr = parent;
+          parent = parents[curr];
+        }
+        sprintf(log_msg, "forward packet dest %hd nexthop %hd message %s\n", destID, curr, message);
+        nextHopID = curr;
+        // cout << "forward to nextHop: "<<nextHopID << endl;
       }
+      // cout << msg << endl;
+      //TODO: send out the message
+      sendto(globalSocketUDP, recvBuf, 1000, 0,\
+         (struct sockaddr*)&globalNodeAddrs[nextHopID], sizeof(globalNodeAddrs[nextHopID]));
       //TODO: finish the log
       write_log(log_msg);
 		}
@@ -179,8 +240,8 @@ void *listenForNeighbors(void* arg)
       short destID = ntohs(no_destID);
       int newCost = ntohl(no_newCost);
       set_cost(globalMyID, destID, newCost);
-      // forwardingTable[destID].cost = newCost;
-      // forwardingTable[destID].seqNum += 1;
+      forwardingTable[destID].cost = newCost;
+      forwardingTable[destID].seqNum += 1;
       // dijkstra(globalMyID);
 
       // // TODO: log this event
@@ -189,37 +250,6 @@ void *listenForNeighbors(void* arg)
 		//TODO now check for the various types of packets you use in your own protocol
 		//else if(!strncmp(recvBuf, "your other message types", ))
 		// ...
-    else if (!strncmp((const char *)recvBuf, "forward", 7))
-    {
-      // TODO: update the heartbeat information
-      uint16_t no_destID;
-      char msg[8192];
-      unsigned char forwardBuf[8192];
-      memcpy(&no_destID, recvBuf + 4, sizeof(short));
-      memcpy(msg, recvBuf + 4 + sizeof(short), 8192);
-      memcpy(forwardBuf, "forward", 7);
-      memcpy(forwardBuf + 7, recvBuf + 4, 8192);
-      short destID = ntohs(no_destID);
-      short nexthopID = forwardingTable[destID].nextHop;
-      char log_msg[8192];
-      if (destID == globalMyID) {
-        sprintf(log_msg, "receive packet message %s\n", msg);
-      }
-      else if (nexthopID == -1) {
-        //TODO: log unreachable destination and drop the message
-        sprintf(log_msg, "unreachable dest %hd\n", destID);
-      }
-      else {
-
-        sprintf(log_msg, "forward packet dest %hd nexthop %hd message %s\n", destID, nexthopID, msg);
-
-        //TODO: send out the message
-        sendto(globalSocketUDP, forwardBuf, 8192, 0, \
-          (struct sockaddr*)&globalNodeAddrs[nexthopID], sizeof(globalNodeAddrs[nexthopID]));
-      }
-      //TODO: finish the log
-      write_log(log_msg);
-    }
     else if (!strncmp((const char *)recvBuf, "LSA", 3)) {
       short sourceID;
       int seqNum;
@@ -238,18 +268,18 @@ void *listenForNeighbors(void* arg)
 	close(globalSocketUDP);
 }
 
-unsigned char *encode_neighbors() {
+char *encode_neighbors() {
   // cout << "encoding neighbors in nodeID = " << globalMyID << endl;
   // send message: LSA<3 bytes> + sourceID<2 bytes> + counter<2 bytes> + seqNum<4 bytes> + counter * (id + blocks)
-  unsigned char *msg = (unsigned char*)malloc(neighborInfoSize);
+  char *msg = (char*)malloc(neighborInfoSize);
   memcpy(msg, "LSA", 3);
   memcpy(msg + 3, &globalMyID, 2);
   memcpy(msg + 7, &forwardingTable[globalMyID].seqNum, 4);
-  unsigned char *tmp = msg + 11;
+  char *tmp = msg + 11;
   short counter = 0;
   for (short i = 0;i < neighborLen; i ++) {
     if (!isAdjacent(globalMyID, i) || (i == globalMyID)) continue;
-    // unsigned char block[6];
+    // char block[6];
     unsigned int cost = get_cost(globalMyID, i);
     // memcpy(block, &i, 2);
     // memcpy(block + 2, &cost, 4);
@@ -261,11 +291,11 @@ unsigned char *encode_neighbors() {
   memcpy(msg + 5, &counter, 2);
   return msg;
 }
-void decode_topology(unsigned char *msg, int *seqNum, short *sourceID) {
+void decode_topology(char *msg, int *seqNum, short *sourceID) {
   //decode the message from neighbors and update global information accordingly
   short targetID, counter;
   unsigned int cost;
-  unsigned char *tmp = msg + 3;
+  char *tmp = msg + 3;
   memcpy(seqNum, tmp + 4, 4);
   memcpy(sourceID, tmp, 2);
   if (*seqNum <= forwardingTable[*sourceID].seqNum) return;
@@ -310,7 +340,7 @@ void hackyBroadcast(const char* buf, int length)
 			sendto(globalSocketUDP, buf, length, 0, (struct sockaddr*)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
 }
 
-void broadcast_topology(const unsigned char* neighborInfo, short origin)
+void broadcast_topology(const char* neighborInfo, short origin)
 {
 	int i;
 	for(i=0;i<neighborLen;i++)
@@ -348,7 +378,7 @@ void *send_neighbor_costs(void *unusedParam) {
   while(1)
   {
       forwardingTable[globalMyID].seqNum++;
-      unsigned char *neighborInfo = encode_neighbors();
+      char *neighborInfo = encode_neighbors();
       broadcast_topology(neighborInfo, globalMyID);
       free(neighborInfo);
       nanosleep(&sleepFor, 0);
@@ -379,7 +409,7 @@ void dijkstra() {
   pq.push(&spanTree[globalMyID]);
   while (!pq.empty()) {
     treeNode *curr = pq.top();
-    cout << "curr id is " << curr->destID << endl;
+    // cout << "curr id is " << curr->destID << endl;
     pq.pop();
     for (short i = 0; i < neighborLen; i ++) {
       unsigned int linkDist;

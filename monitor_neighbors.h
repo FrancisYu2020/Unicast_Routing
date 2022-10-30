@@ -38,8 +38,8 @@ struct treeNode {
 };
 
 void hackyBroadcast(const char* buf, int length);
-void hackyBroadcast1(const unsigned char* buf, int length);
-void broadcast_topology(const unsigned char* neighborInfo, short origin);
+// void hackyBroadcast1(const unsigned char* buf, int length);
+void broadcast_topology(const char* neighborInfo, short origin);
 
 void* announceToNeighbors(void* unusedParam);
 
@@ -60,7 +60,7 @@ void *check_neighbors_alive(void* arg);
 
 unsigned char *encode_structure(short *sendIdx, short counter);
 
-void decode_topology(unsigned char *msg, int *seqNum, short *sourceID);
+void decode_topology(char *msg, int *seqNum, short *sourceID);
 
 void dijkstra();
 

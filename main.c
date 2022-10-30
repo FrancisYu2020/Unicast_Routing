@@ -116,7 +116,7 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-  printf("%s\n", "debug after UDP");
+  // printf("%s\n", "debug after UDP");
 
 
 
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
   pthread_create(&messageReceiverThread, 0, listenForNeighbors, (void*)0);
 	pthread_create(&monitorThread, 0, check_neighbors_alive, (void*)0);
 
-  printf("%s\n", "debug after pthread");
+  // printf("%s\n", "debug after pthread");
 
 
 	//good luck, have fun!
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
   pthread_join(announcerThread, NULL);
   pthread_join(messageReceiverThread, NULL);
   pthread_join(monitorThread, NULL);
-  printf("%s\n", "debug after listenForNeighbors");
+  // printf("%s\n", "debug after listenForNeighbors");
 
 
 }
