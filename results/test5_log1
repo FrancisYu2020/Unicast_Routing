@@ -1,0 +1,2 @@
+forward packet dest 77 nexthop 11 message shortcut already in place
+forward packet dest 77 nexthop 11 message shortcut gone!

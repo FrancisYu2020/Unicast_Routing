@@ -5,3 +5,5 @@ vec_router
 *.txt
 toy.c
 hello
+grading_helper/**
+grading_helper

@@ -1,0 +1,5 @@
+forward packet dest 3 nexthop 1 message this is just the example topo... not partioned yet
+forward packet dest 3 nexthop 1 message partioned!!
+sending packet dest 7 nexthop 1 message part2557
+forward packet dest 7 nexthop 1 message heal07
+sending packet dest 4 nexthop 1 message heal2554

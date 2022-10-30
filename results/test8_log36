@@ -1,0 +1,2 @@
+forward packet dest 5 nexthop 26 message more gridness
+forward packet dest 37 nexthop 37 message pretty far

@@ -1,0 +1,1 @@
+forward packet dest 77 nexthop 66 message shortcut available!

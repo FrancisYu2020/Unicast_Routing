@@ -1,0 +1,3 @@
+receive packet message woooo big ole double grid
+forward packet dest 37 nexthop 34 message pretty far
+forward packet dest 44 nexthop 34 message way more than one hop

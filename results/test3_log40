@@ -1,0 +1,1 @@
+forward packet dest 50 nexthop 50 message 23 to 50, let's go
