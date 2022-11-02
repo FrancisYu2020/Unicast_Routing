@@ -23,6 +23,8 @@ struct sockaddr_in globalNodeAddrs[256];
 
 char *filename;
 struct tableEntry forwardingTable[256];
+pthread_mutex_t FTlocks[256];
+pthread_mutex_t costMatrixLock;
 
 
 int main(int argc, char** argv)
@@ -68,8 +70,10 @@ int main(int argc, char** argv)
 	//TODO: read and parse initial costs file. default to cost 1 if no entry for a node. file may be empty.
   // printf("%s\n", "debug!!!");
   for (int i = 0; i < 256; i ++) {
+		// pthread_mutex_lock(&FTlocks[i]);
     forwardingTable[i].seqNum = 0;
     forwardingTable[i].cost = 1;
+		// pthread_mutex_unlock(&FTlocks[i]);
   }
 
   FILE* initialCostsFile = fopen(argv[2], "r");
@@ -90,7 +94,9 @@ int main(int argc, char** argv)
     short nodeID = (short)atoi(line);
     short cost = (short)atoi(cost_chr);
     // set_cost(globalMyID, nodeID, cost);
+		// pthread_mutex_lock(&FTlocks[i]);
 		forwardingTable[nodeID].cost = cost;
+		// pthread_mutex_unlock(&FTlocks[i]);
   }
   fclose(initialCostsFile);
 

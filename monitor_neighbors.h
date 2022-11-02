@@ -22,6 +22,8 @@ extern struct sockaddr_in globalNodeAddrs[256];
 
 extern char *filename;
 extern struct tableEntry forwardingTable[256];
+extern pthread_mutex_t FTlocks[256];
+extern pthread_mutex_t costMatrixLock;
 
 struct tableEntry {
 	unsigned int cost;
@@ -62,3 +64,5 @@ void decode_topology(char *msg, int *seqNum, short *sourceID);
 void dijkstra();
 
 void *send_neighbor_costs(void *unusedParam);
+
+void sendLSA();

@@ -23,17 +23,30 @@
 using namespace std;
 
 #define neighborLen 256
-#define timeout 700 * 1000 //TODO: set a reasonable timeout value, 700ms currently as suggested on campuswire
-#define neighborInfoSize 3 + 2 + 2 + 4 + neighborLen * (2 + 4) // details in encode_neighbors
+#define timeout 100 * 1000 //TODO: set a reasonable timeout value, 700ms currently as suggested on campuswire
+#define neighborInfoSize 3 + 2 + 2 + 4 + neighborLen * (2 + 4) // details in encode neighbors
 
 unsigned int **costMatrix;
 // int **isAdjacent;
 // pthread_mutex_t costMatrixLock;
 treeNode spanTree[neighborLen];
 
+//Yes, this is terrible. It's also terrible that, in Linux, a socket
+//can't receive broadcast packets unless it's bound to INADDR_ANY,
+//which we can't do in this assignment.
+void hackyBroadcast(const char* buf, int length)
+{
+	int i;
+	for(i=0;i<neighborLen;i++)
+		if(i != globalMyID) //(although with a real broadcast you would also get the packet yourself)
+			sendto(globalSocketUDP, buf, length, 0, (struct sockaddr*)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
+}
+
 void set_cost(short source, short target, unsigned int newCost) {
+  pthread_mutex_lock(&costMatrixLock);
   costMatrix[source][target] = newCost;
   costMatrix[target][source] = newCost;
+  pthread_mutex_unlock(&costMatrixLock);
 }
 unsigned int get_cost(short source, short target) {
   return costMatrix[source][target];
@@ -79,19 +92,42 @@ void *check_neighbors_alive(void* arg) {
   struct timespec sleepFor;
   struct timeval currTime;
 	sleepFor.tv_sec = 0;
-	sleepFor.tv_nsec = 600 * 1000 * 1000; //500 ms
+	sleepFor.tv_nsec = 500 * 1000 * 1000; //500 ms
 	while(1)
 	{
     gettimeofday(&currTime, 0);
+    pthread_mutex_lock(&FTlocks[globalMyID]);
+    forwardingTable[globalMyID].seqNum++;
+    char *msg = (char*)malloc(neighborInfoSize);
+    memcpy(msg, "LSA", 3);
+    memcpy(msg + 3, &globalMyID, 2);
+    memcpy(msg + 7, &forwardingTable[globalMyID].seqNum, 4);
+    pthread_mutex_unlock(&FTlocks[globalMyID]);
+    char *tmp = msg + 11;
+    short counter = 0;
+    unsigned int zeroCost = 0;
     for (int i = 0; i < neighborLen; i++) {
       //TODO: exclude those non-neighbors and update the direct link
       if (i == globalMyID || (isAdjacent(globalMyID, i) == 0)) continue;
       unsigned int timeDiff = time_elapse(globalLastHeartbeat[i], currTime);
+      // if (globalMyID == 6 && (i == 7)) cout << timeDiff << endl;
+      // else if (globalMyID == 7 && (i == 6)) cout << timeDiff << endl;
       if (timeDiff > timeout) {
         //TODO: handle lost connection case
+        // cout << "Time out for connection: " << globalMyID << "->" << i << endl;
         set_cost(globalMyID, i, 0);
+        // sendLSA();
+        memcpy(tmp, &i, 2);
+        memcpy(tmp + 2, &zeroCost, 4);
+        tmp += 6;
+        counter ++;
       }
+      // if (globalMyID == 6 && (i == 7)) print_costMatrix();
+      // else if (globalMyID == 7 && (i == 6)) print_costMatrix();
     }
+    memcpy(msg + 5, &counter, 2);
+    broadcast_topology(msg, globalMyID);
+    free(msg);
 		nanosleep(&sleepFor, 0);
 	}
 }
@@ -110,6 +146,7 @@ void *listenForNeighbors(void* arg)
 	{
 		theirAddrLen = sizeof(theirAddr);
     // printf("In while\n" );
+    memset(recvBuf, 0, 1000);
 		if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000 , 0,
 					(struct sockaddr*)&theirAddr, &theirAddrLen)) == -1)
 		{
@@ -127,8 +164,10 @@ void *listenForNeighbors(void* arg)
       // printf("%d\n", heardFrom);
 
 			//TODO: this node can consider heardFrom to be directly connected to it; do any such logic now.
-      // forwardingTable[heardFrom].isNeighbor = 1;
-      if (!isAdjacent(heardFrom, globalMyID)) set_cost(globalMyID, heardFrom, forwardingTable[heardFrom].cost);
+      if (!isAdjacent(heardFrom, globalMyID)) {
+        set_cost(globalMyID, heardFrom, forwardingTable[heardFrom].cost);
+        // sendLSA();
+      }
 			//record that we heard from heardFrom just now.
 			gettimeofday(&globalLastHeartbeat[heardFrom], 0);
       // cout << globalLastHeartbeat[heardFrom].tv_sec << " " << globalLastHeartbeat[heardFrom].tv_usec << endl;
@@ -150,7 +189,7 @@ void *listenForNeighbors(void* arg)
       short nextHopID;
       char message[100];
       if (fromPort == 8999) {
-        memcpy(message, recvBuf + 6, 100);
+        strcpy(message, recvBuf + 6);
         size_t messageLen = strlen(message);
         //TODO: log unreachable destination and drop the message
         if (spanTree[destID].nextHop == -1) {
@@ -195,20 +234,18 @@ void *listenForNeighbors(void* arg)
       }
       else {
         //TODO: forward the message
-        // cout << "forward in " << globalMyID << endl;
+        cout << "forward in " << globalMyID << endl;
         size_t messageLen;
         memcpy(&messageLen, recvBuf + 6, sizeof(size_t));
         memcpy(message, recvBuf + 6 + sizeof(size_t), messageLen);
         message[messageLen] = '\0';
         char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
         short dests[neighborLen], parents[neighborLen];
-        // cout << "externally decoded: ";
+        cout << "externally decoded: ";
         for (short i = 0; i < neighborLen; i ++) {
-          // short node;
           memcpy(&parents[i], tmp, 2);
           tmp += 2;
-          // parents[i] = ntohs(node);
-          // cout << parents[i] << " ";
+          cout << parents[i] << " ";
         }
         cout << endl;
         short curr = destID;
@@ -244,6 +281,7 @@ void *listenForNeighbors(void* arg)
       set_cost(globalMyID, destID, newCost);
       forwardingTable[destID].cost = newCost;
       // forwardingTable[destID].seqNum += 1;
+      // sendLSA();
       // dijkstra(globalMyID);
 
       // // TODO: log this event
@@ -256,13 +294,16 @@ void *listenForNeighbors(void* arg)
       short sourceID;
       int seqNum;
       decode_topology(recvBuf, &seqNum, &sourceID);
+      // cout << "in globalMyID = " << globalMyID << ", sending source = " << sourceID << " with seqNum = " << seqNum<< endl;
       if (seqNum > forwardingTable[sourceID].seqNum) {
         forwardingTable[sourceID].seqNum = seqNum;
         broadcast_topology(recvBuf, heardFrom);
       }
     }
     else if (!strncmp((const char *)recvBuf, "print", 5)) {
+      // cout << "in globalMyID = " << globalMyID << endl;
       print_costMatrix();
+      cout << endl;
     }
 	}
 	//(should never reach here)
@@ -279,9 +320,11 @@ char *encode_neighbors() {
   char *tmp = msg + 11;
   short counter = 0;
   for (short i = 0;i < neighborLen; i ++) {
+    // cout << globalMyID << " and " << i << " isAdjacent = " << isAdjacent(globalMyID, i) << endl;
     if (!isAdjacent(globalMyID, i) || (i == globalMyID)) continue;
     // char block[6];
     unsigned int cost = get_cost(globalMyID, i);
+
     // memcpy(block, &i, 2);
     // memcpy(block + 2, &cost, 4);
     memcpy(tmp, &i, 2);
@@ -299,21 +342,18 @@ void decode_topology(char *msg, int *seqNum, short *sourceID) {
   char *tmp = msg + 3;
   memcpy(seqNum, tmp + 4, 4);
   memcpy(sourceID, tmp, 2);
-  if (*seqNum <= forwardingTable[*sourceID].seqNum) return;
+  if (*sourceID == globalMyID || (*seqNum <= forwardingTable[*sourceID].seqNum)) return;
   memcpy(&counter, tmp + 2, 2);
   tmp += 8;
-  vector<int> costs;
-  vector<int> neighbors;
+  // vector<int> costs;
+  // vector<int> neighbors;
   for (short i = 0; i < counter; i ++) {
     memcpy(&targetID, tmp, 2);
     memcpy(&cost, tmp + 2, 4);
-    // if (isAdjacent(*sourceID, targetID)) set_cost(*sourceID, targetID, cost);
-    // else set_cost(*sourceID, targetID, 0);
-    costs.push_back(cost);
-    neighbors.push_back(targetID);
     set_cost(*sourceID, targetID, cost);
     tmp += 6;
   }
+  // forwardingTable[*sourceID].seqNum = *seqNum;
   // if (globalMyID == 1) {
   //   // cout << "received "<< sourceID << "'s' LSA broadcast from " << heardFrom << ", and broad cast to neighbors" << endl;
   //   cout << "sourceID = " << *sourceID << " " << counter << " old seq = " << forwardingTable[*sourceID].seqNum << " new seq = " << *seqNum << endl;
@@ -328,17 +368,6 @@ void decode_topology(char *msg, int *seqNum, short *sourceID) {
   //   cout << endl;
   //   cout << endl;
   // }
-}
-
-//Yes, this is terrible. It's also terrible that, in Linux, a socket
-//can't receive broadcast packets unless it's bound to INADDR_ANY,
-//which we can't do in this assignment.
-void hackyBroadcast(const char* buf, int length)
-{
-	int i;
-	for(i=0;i<neighborLen;i++)
-		if(i != globalMyID) //(although with a real broadcast you would also get the packet yourself)
-			sendto(globalSocketUDP, buf, length, 0, (struct sockaddr*)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
 }
 
 void broadcast_topology(const char* neighborInfo, short origin)
@@ -358,7 +387,9 @@ void* announceToNeighbors(void* unusedParam)
 	sleepFor.tv_nsec = 300 * 1000 * 1000; //300 ms
 	while(1)
 	{
-    // forwardingTable[globalMyID].seqNum++;
+    pthread_mutex_lock(&FTlocks[globalMyID]);
+    forwardingTable[globalMyID].seqNum++;
+    pthread_mutex_unlock(&FTlocks[globalMyID]);
     hackyBroadcast("HEREIAM", 7);
 		nanosleep(&sleepFor, 0);
 	}
@@ -370,7 +401,9 @@ void *send_neighbor_costs(void *unusedParam) {
   srand((unsigned int)(currTime.tv_sec * 1000000 + currTime.tv_usec));
   struct timespec randomSleep;
   randomSleep.tv_sec = 0;
+  // randomSleep.tv_nsec = 300 * 1000 * 1000;
   randomSleep.tv_nsec = (rand() % 1000) * 1000 * 1000;
+  cout << (randomSleep.tv_nsec)<< endl;
   nanosleep(&randomSleep, 0);
 
   struct timespec sleepFor;
@@ -378,8 +411,10 @@ void *send_neighbor_costs(void *unusedParam) {
   sleepFor.tv_nsec = 0;
   while(1)
   {
+      pthread_mutex_lock(&FTlocks[globalMyID]);
       forwardingTable[globalMyID].seqNum++;
       char *neighborInfo = encode_neighbors();
+      pthread_mutex_unlock(&FTlocks[globalMyID]);
       broadcast_topology(neighborInfo, globalMyID);
       free(neighborInfo);
       nanosleep(&sleepFor, 0);
