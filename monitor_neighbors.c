@@ -23,7 +23,7 @@
 using namespace std;
 
 #define neighborLen 256
-#define timeout 100 * 1000 //TODO: set a reasonable timeout value, 700ms currently as suggested on campuswire
+#define timeout 700 * 1000 //TODO: set a reasonable timeout value, 700ms currently as suggested on campuswire
 #define neighborInfoSize 3 + 2 + 2 + 4 + neighborLen * (2 + 4) // details in encode neighbors
 
 unsigned int **costMatrix;
@@ -52,8 +52,8 @@ unsigned int get_cost(short source, short target) {
   return costMatrix[source][target];
 }
 void print_costMatrix() {
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
+  for (int i = 0; i < 48; i++) {
+    for (int j = 0; j < 48; j++) {
       printf("%d ", costMatrix[i][j]);
     }
     printf("\n");
@@ -203,6 +203,7 @@ void *listenForNeighbors(void* arg)
           memcpy(recvBuf + 6, &messageLen, sizeof(size_t));
           memcpy(recvBuf + 6 + sizeof(size_t), message, messageLen);
           char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
+          // cout << "globalMyID = " << globalMyID << endl;
           // cout << "ground truth: ";
           for (short i = 0; i < neighborLen; i ++) {
             memcpy(tmp, &spanTree[i].parent, 2);
@@ -234,20 +235,20 @@ void *listenForNeighbors(void* arg)
       }
       else {
         //TODO: forward the message
-        cout << "forward in " << globalMyID << endl;
+        // cout << "forward in " << globalMyID << endl;
         size_t messageLen;
         memcpy(&messageLen, recvBuf + 6, sizeof(size_t));
         memcpy(message, recvBuf + 6 + sizeof(size_t), messageLen);
         message[messageLen] = '\0';
         char *tmp = recvBuf + 6 + sizeof(size_t) + messageLen;
         short dests[neighborLen], parents[neighborLen];
-        cout << "externally decoded: ";
+        // cout << "externally decoded: ";
         for (short i = 0; i < neighborLen; i ++) {
           memcpy(&parents[i], tmp, 2);
           tmp += 2;
-          cout << parents[i] << " ";
+          // cout << parents[i] << " ";
         }
-        cout << endl;
+        // cout << endl;
         short curr = destID;
         short parent = parents[curr];
         while (parent != globalMyID) {
@@ -308,6 +309,62 @@ void *listenForNeighbors(void* arg)
 	}
 	//(should never reach here)
 	close(globalSocketUDP);
+}
+
+bool Compare(treeNode *a, treeNode *b) {
+  // cout << "(dist=" << a->dist << ", " << a-> << ")"
+  if (a->dist > b->dist) return true;
+  else if (a->dist < b->dist) return false;
+  // dist is the same
+  if (a->destID > b->destID) return true;
+  return false;
+}
+
+void dijkstra() {
+  priority_queue<treeNode*, vector<treeNode*>, function<bool(treeNode*, treeNode*)>> pq(Compare);
+  // treeNode *spanTree = (treeNode *)malloc(neighborLen * sizeof(treeNode));
+  for (short i = 0; i < neighborLen; i ++) {
+    spanTree[i].destID = i;
+    spanTree[i].dist = -1;
+    spanTree[i].parent = -1;
+    spanTree[i].nextHop = -1;
+  }
+  spanTree[globalMyID].dist = 0;
+  set<short> currSpan;
+  // if (globalMyID == 0) cout << "debug dijkstra" << endl;
+  pq.push(&spanTree[globalMyID]);
+  while (!pq.empty()) {
+    treeNode *curr = pq.top();
+    // if (globalMyID == 0) cout << curr->destID << " ";
+    // cout << "curr id is " << curr->destID << endl;
+    pq.pop();
+    for (short i = 0; i < neighborLen; i ++) {
+      unsigned int linkDist;
+      if ((linkDist = get_cost(curr->destID, i)) && (currSpan.find(i) == currSpan.end())) {
+        unsigned int newCost = linkDist + curr->dist;
+        if (spanTree[i].dist > newCost) {
+          spanTree[i].parent = curr->destID;
+          spanTree[i].dist = linkDist + curr->dist;
+          if (curr->destID == globalMyID) spanTree[i].nextHop = i;
+          else spanTree[i].nextHop = curr->nextHop;
+        }
+        else if (spanTree[i].dist == newCost && (spanTree[i].nextHop > curr->nextHop)) {
+          spanTree[i].parent = curr->destID;
+          spanTree[i].nextHop = curr->nextHop;
+        }
+        pq.push(&spanTree[i]);
+      }
+    }
+    currSpan.insert(curr->destID);
+  }
+  // print spanTree details
+  // for (short i = 0; i < neighborLen; i ++){
+  //   if ((int)spanTree[i].dist == -1) continue;
+  //   else {
+  //     cout << "(" << (spanTree[i].destID) << "," << spanTree[i].parent << "," << spanTree[i].nextHop << "," << (spanTree[i].dist) << ")";
+  //   }
+  // }
+  // if (globalMyID == 0) cout << endl;
 }
 
 char *encode_neighbors() {
@@ -403,7 +460,7 @@ void *send_neighbor_costs(void *unusedParam) {
   randomSleep.tv_sec = 0;
   // randomSleep.tv_nsec = 300 * 1000 * 1000;
   randomSleep.tv_nsec = (rand() % 1000) * 1000 * 1000;
-  cout << (randomSleep.tv_nsec)<< endl;
+  // cout << (randomSleep.tv_nsec)<< endl;
   nanosleep(&randomSleep, 0);
 
   struct timespec sleepFor;
@@ -420,58 +477,4 @@ void *send_neighbor_costs(void *unusedParam) {
       nanosleep(&sleepFor, 0);
   }
   // return NULL;
-}
-
-bool Compare(treeNode *a, treeNode *b) {
-  if (a->dist > b->dist) return true;
-  else if (a->dist < b->dist) return false;
-  // dist is the same
-  if (a->destID > b->dist) return true;
-  return false;
-}
-
-void dijkstra() {
-  priority_queue<treeNode*, vector<treeNode*>, function<bool(treeNode*, treeNode*)>> pq(Compare);
-  // treeNode *spanTree = (treeNode *)malloc(neighborLen * sizeof(treeNode));
-  for (short i = 0; i < neighborLen; i ++) {
-    spanTree[i].destID = i;
-    spanTree[i].dist = -1;
-    spanTree[i].parent = -1;
-    spanTree[i].nextHop = -1;
-  }
-  spanTree[globalMyID].dist = 0;
-  set<short> currSpan;
-  // cout << "debug dijkstra" << endl;
-  pq.push(&spanTree[globalMyID]);
-  while (!pq.empty()) {
-    treeNode *curr = pq.top();
-    // cout << "curr id is " << curr->destID << endl;
-    pq.pop();
-    for (short i = 0; i < neighborLen; i ++) {
-      unsigned int linkDist;
-      if ((linkDist = get_cost(curr->destID, i)) && (currSpan.find(i) == currSpan.end())) {
-        unsigned int newCost = linkDist + curr->dist;
-        if (spanTree[i].dist > newCost) {
-          spanTree[i].parent = curr->destID;
-          spanTree[i].dist = linkDist + curr->dist;
-          if (curr->destID == globalMyID) spanTree[i].nextHop = i;
-          else spanTree[i].nextHop = curr->nextHop;
-        }
-        else if (spanTree[i].dist == newCost && (spanTree[i].nextHop > curr->nextHop)) {
-          spanTree[i].parent = curr->destID;
-          spanTree[i].nextHop = curr->nextHop;
-        }
-        pq.push(&spanTree[i]);
-      }
-    }
-    currSpan.insert(curr->destID);
-  }
-  // print spanTree details
-  // for (short i = 0; i < neighborLen; i ++){
-  //   if ((int)spanTree[i].dist == -1) continue;
-  //   else {
-  //     cout << "(" << (spanTree[i].destID) << "," << spanTree[i].parent << "," << spanTree[i].nextHop << "," << (spanTree[i].dist) << ")";
-  //   }
-  // }
-  // cout << endl;
 }

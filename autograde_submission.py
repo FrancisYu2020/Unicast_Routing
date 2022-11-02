@@ -101,14 +101,14 @@ if __name__ == '__main__':
 		program_name = "./"+sys.argv[1]
 	if (len(sys.argv)> 2):
 		network_name = sys.argv[2]
-	if (len(sys.argv)> 3):
-		test_id = int(sys.argv[3])
+	# if (len(sys.argv)> 3):
+		# test_id = int(sys.argv[3])
 	output_zip = "out"
 	num_tests = 8
 	initialize_results()
-	run_test(test_id)
-	# for i in range(1,num_tests+1):
-		# run_test(i)
+	# run_test(test_id)
+	for i in range(1,num_tests+1):
+		run_test(i)
 	if (os.path.isfile(output_zip+".zip")):
 		os.remove(output_zip+".zip")
 	os.system("zip -rq "+output_zip+" "+directory_results)

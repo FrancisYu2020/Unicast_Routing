@@ -61,6 +61,7 @@ unsigned char *encode_structure(short *sendIdx, short counter);
 
 void decode_topology(char *msg, int *seqNum, short *sourceID);
 
+bool Compare(treeNode *a, treeNode *b);
 void dijkstra();
 
 void *send_neighbor_costs(void *unusedParam);

@@ -57,6 +57,7 @@ int main(int argc, char** argv)
 
 		char sendBuf[5];
 		// printf("debug1\n");
+		// printf("Hello!\n" );
 		strcpy(sendBuf, "print");
 		// printf("debug2\n");
 		// memcpy(sendBuf+4, &no_destID, sizeof(short int));
